@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>AR Face Filter</title>
+    <title>Polished AR Try-On App</title>
     
     <script src="https://cdn.jsdelivr.net/npm/aframe@1.5.0/dist/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-face-aframe.prod.js"></script>
@@ -30,26 +30,52 @@
         background: linear-gradient(45deg, #f0f0f0, #ffffff); border: none;
         border-radius: 2rem; cursor: pointer;
         box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-        transition: transform 0.2s, box-shadow 0.2s;
       }
-      #start-button:active { transform: scale(0.95); box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
       .error-message { color: #ff6b6b; font-weight: bold; }
+      
+      /* New Status Overlay Style */
+      #status-overlay {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: rgba(0, 0, 0, 0.6);
+        color: white;
+        padding: 8px 15px;
+        border-radius: 20px;
+        z-index: 9999;
+        font-size: 0.9rem;
+        opacity: 0; /* Hidden by default */
+        transition: opacity 0.5s;
+      }
     </style>
   </head>
   <body>
     <div id="start-screen">
-      <h1>AR Face Filter</h1>
-      <p id="start-text">Tap the button below and grant camera access to start the AR experience.</p>
+      <h1>AR Try-On</h1>
+      <p id="start-text">Tap the button and grant camera access to start.</p>
       <button id="start-button">Start AR</button>
     </div>
     
     <div id="ar-container">
+       <!-- Status overlay for user feedback -->
+      <div id="status-overlay">Scanning for face...</div>
+
+      <!-- Renderer setting added to fix potential black screen -->
       <a-scene mindar-face="autoStart: false" embedded color-space="sRGB"
+               renderer="colorManagement: true;"
                vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
+        
         <a-camera active="false" position="0 0 0"></a-camera>
-        <a-entity mindar-face-target="anchorIndex: 168">
-          <a-gltf-model rotation="0 -90 0" position="0 -0.4 -0.2" scale="1.1 1.1 1.1" 
-            src="https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.1/examples/face-tracking/assets/african_mask/scene.gltf">
+        
+        <!-- Using a reliable sunglasses model anchored to the nose bridge -->
+        <a-entity mindar-face-target="anchorIndex: 1">
+          <a-gltf-model 
+            rotation="0 0 0" 
+            position="0 -0.15 0" 
+            scale="0.07 0.07 0.07" 
+            src="https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.0/examples/face-tracking/assets/glasses/scene.gltf"
+            >
           </a-gltf-model>
         </a-entity>
       </a-scene>
@@ -62,6 +88,7 @@
         const startText = document.querySelector('#start-text');
         const arContainer = document.querySelector('#ar-container');
         const sceneEl = document.querySelector('a-scene');
+        const statusOverlay = document.querySelector('#status-overlay');
 
         startButton.addEventListener('click', async () => {
           startButton.textContent = "Starting...";
@@ -70,13 +97,24 @@
             const stream = await navigator.mediaDevices.getUserMedia({ video: true });
             stream.getTracks().forEach(track => track.stop());
           } catch (err) {
-            console.error("Camera Access Error:", err);
-            startText.innerHTML = `<span class="error-message">Camera permission was denied.</span><br><br>You must allow camera access in your browser and phone settings to use this feature. Please refresh and try again.`;
+            startText.innerHTML = `<span class="error-message">Camera permission denied.</span><br><br>Please refresh and allow camera access to use this feature.`;
             startButton.textContent = "Start AR";
             return;
           }
 
           const mindarSystem = sceneEl.systems['mindar-face-system'];
+          
+          // Show status overlay when starting
+          statusOverlay.style.opacity = 1;
+
+          // Event listeners for feedback
+          sceneEl.addEventListener("targetFound", event => {
+            statusOverlay.style.opacity = 0; // Hide when face is found
+          });
+          sceneEl.addEventListener("targetLost", event => {
+            statusOverlay.style.opacity = 1; // Show when face is lost
+          });
+          
           mindarSystem.start(); 
           startScreen.style.display = 'none';
           arContainer.style.display = 'block';
